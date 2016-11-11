@@ -97,7 +97,12 @@ namespace ReepayApi.Service
             var myClassname = MethodBase.GetCurrentMethod().Name;
             var config = this.GetDefaultApiConfiguration();
             var api = new SubscriptionApi(config);
-        
+
+            if (string.IsNullOrEmpty(subscription.CardToken))
+            {
+                subscription.CardToken = null;
+            }
+
             for (var i = 0; i <= MaxNoOfRetries; i++)
             {
                 try

@@ -863,5 +863,42 @@ namespace ReepayApi.Service
             config.AddDefaultHeader("Authorization", config.GetApiKeyWithPrefix("ApiKey"));
             return config;
         }
+
+        /// <summary>
+        /// Get discount data
+        /// </summary>
+        /// <param name="handle">handle</param>
+        /// <returns>statuscode and Discount data</returns>
+        public ApiResponse<Discount> GetDiscount(string handle)
+        {
+            var myClassname = MethodBase.GetCurrentMethod().Name;
+            var config = this.GetDefaultApiConfiguration();
+            var api = new DiscountApi(config);
+
+            for (var i = 0; i <= MaxNoOfRetries; i++)
+            {
+                try
+                {
+                    var res = api.GetDiscountWithHttpInfo(handle);
+                    if (res.StatusCode != (int)HttpStatusCode.OK)
+                    {
+                        this._log.Error($"Unexpected answer from reepay. {myClassname} Errorcode {res.StatusCode}");
+                    }
+
+                    return res;
+                }
+                catch (ApiException apiException)
+                {
+                    this._log.Error($"{myClassname} {apiException.ErrorCode} {apiException.ErrorContent}");
+                    return new ApiResponse<Discount>(apiException.ErrorCode, null, null);
+                }
+                catch (Exception) when (i < MaxNoOfRetries)
+                {
+                    this._log.Debug($"{myClassname} retry attempt {i}");
+                }
+            }
+
+            return new ApiResponse<Discount>((int)HttpStatusCode.InternalServerError, null, null);
+        }
     }
 }

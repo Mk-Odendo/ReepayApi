@@ -16,7 +16,7 @@ namespace ReepayApi.Service
 
     #endregion
 
-    public class ReepayApiService
+    public class ReepayApiService : IReepayApiService
     {
         private readonly ILog _log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
         private const int MaxNoOfRetries = 3;
@@ -43,7 +43,7 @@ namespace ReepayApi.Service
         {
             var reepayPlans = this.GetPlans(true);
 
-            if (reepayPlans.StatusCode != (int) HttpStatusCode.OK || reepayPlans.Data == null || reepayPlans.Data.Count == 0)
+            if (reepayPlans.StatusCode != (int)HttpStatusCode.OK || reepayPlans.Data == null || reepayPlans.Data.Count == 0)
             {
                 return new Tuple<bool, string>(false, $"Internal server error. Error code: '{reepayPlans.StatusCode}' from remote system");
             }
@@ -51,36 +51,20 @@ namespace ReepayApi.Service
             var subs = this.GetSubscriptions(siteUserGuid, Subscription.StateEnum.Active);
             foreach (var s in subs.Data.Content)
             {
-                this.RemoveAllPaymentMethods(s.Handle);
+                RemoveAllPaymentMethods(s.Handle);
             }
-
-            this.DeactivatePaymentMethodsCustomerExcept(siteUserGuid, null);
 
             if (string.IsNullOrEmpty(reepayCardToken))
             {
                 return new Tuple<bool, string>(false, "invalid carddata");
             }
 
-            if (!subs.Data.Content.Any())
+            if (subs.Data.Content.Any())
             {
-                // create new subscription
-                var newSubcription = this.CreateSubscription(siteUserGuid.ToString(), reepayPlans.Data[0].Handle, reepayCardToken, null);
-
-                if (newSubcription.StatusCode != (int) HttpStatusCode.OK)
+                var setCardReponse = SetCardPaymentMethod(subs.Data.Content[0].Handle, reepayCardToken);
+                if (setCardReponse.StatusCode != (int)HttpStatusCode.OK)
                 {
-                    return new Tuple<bool, string>(false, $"Internal server error. Error code: '{newSubcription.StatusCode}' from remote system");
-                }
-            }
-            else
-            {
-                this.AddPaymentMethodToCustomer(siteUserGuid, reepayCardToken);
-
-                // reactivate subscription
-                var reactivatedSubscription = this.ReactivateCancelledSubscription(subs.Data.Content[0].Handle);
-
-                if (reactivatedSubscription.StatusCode != (int) HttpStatusCode.OK)
-                {
-                    return new Tuple<bool, string>(false, $"Internal server error. Error code: '{reactivatedSubscription.StatusCode}' from remote system");
+                    return new Tuple<bool, string>(false, $"Internal server error. Error code: '{setCardReponse.StatusCode}' from remote system");
                 }
             }
 
@@ -899,6 +883,71 @@ namespace ReepayApi.Service
             }
 
             return new ApiResponse<Discount>((int)HttpStatusCode.InternalServerError, null, null);
+        }
+
+        public ApiResponse<PaymentMethods> SetCardPaymentMethod(string subscriptionHandle, string cardToken)
+        {
+            var myClassname = MethodBase.GetCurrentMethod().Name;
+            var config = this.GetDefaultApiConfiguration();
+            var api = new SubscriptionApi(config);
+
+            for (var i = 0; i <= MaxNoOfRetries; i++)
+            {
+                try
+                {
+                    var cardBody = new SetCardPaymentMethod {CardToken = cardToken};
+                    var res = api.SetCardPaymentMethodJsonWithHttpInfo(subscriptionHandle, cardBody);
+                    if (res.StatusCode != (int)HttpStatusCode.OK)
+                    {
+                        this._log.Error($"Unexpected answer from reepay. {myClassname} Errorcode {res.StatusCode}");
+                    }
+
+                    return res;
+                }
+                catch (ApiException apiException)
+                {
+                    this._log.Error($"{myClassname} {apiException.ErrorCode} {apiException.ErrorContent}");
+                    return new ApiResponse<PaymentMethods>(apiException.ErrorCode, null, null);
+                }
+                catch (Exception) when (i < MaxNoOfRetries)
+                {
+                    this._log.Debug($"{myClassname} retry attempt {i}");
+                }
+            }
+
+            return new ApiResponse<PaymentMethods>((int)HttpStatusCode.InternalServerError, null, null);
+        }
+
+        public ApiResponse<PaymentMethods> GetSubscriptionPaymentMethods(string subscriptionHandle)
+        {
+            var myClassname = MethodBase.GetCurrentMethod().Name;
+            var config = this.GetDefaultApiConfiguration();
+            var api = new SubscriptionApi(config);
+
+            for (var i = 0; i <= MaxNoOfRetries; i++)
+            {
+                try
+                {
+                    var res = api.GetSubscriptionPaymentMethodsWithHttpInfo(subscriptionHandle);
+                    if (res.StatusCode != (int)HttpStatusCode.OK)
+                    {
+                        this._log.Error($"Unexpected answer from reepay. {myClassname} Errorcode {res.StatusCode}");
+                    }
+
+                    return res;
+                }
+                catch (ApiException apiException)
+                {
+                    this._log.Error($"{myClassname} {apiException.ErrorCode} {apiException.ErrorContent}");
+                    return new ApiResponse<PaymentMethods>(apiException.ErrorCode, null, null);
+                }
+                catch (Exception) when (i < MaxNoOfRetries)
+                {
+                    this._log.Debug($"{myClassname} retry attempt {i}");
+                }
+            }
+
+            return new ApiResponse<PaymentMethods>((int)HttpStatusCode.InternalServerError, null, null);
         }
     }
 }

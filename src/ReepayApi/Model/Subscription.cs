@@ -153,7 +153,7 @@ namespace ReepayApi.Model
         /// <param name="ScheduledPlanChange">If set, a subscription plan change has been scheduled to follow the next renewal. The value is the subscription plan handle to update to..</param>
         /// <param name="HostedPageLinks">Links to hosted pages relating to subscription (required).</param>
         /// <param name="SubscriptionDiscounts">List of susbcription discounts handles attached to subscription.</param>
-        public Subscription(string Plan = null, int? Quantity = null, int? PlanVersion = null, bool? AmountInclVat = null, string ScheduledPlanChange = null, SubscriptionLinks HostedPageLinks = null, List<string> SubscriptionDiscounts = null)
+        public Subscription(string Plan = null, int? Quantity = null, int? PlanVersion = null, bool? AmountInclVat = null, string ScheduledPlanChange = null, SubscriptionLinks HostedPageLinks = null, List<string> SubscriptionDiscounts = null, string Handle = null)
         {
             // to ensure "Plan" is required (not null)
             if (Plan == null)
@@ -200,6 +200,17 @@ namespace ReepayApi.Model
             {
                 this.AmountInclVat = AmountInclVat;
             }
+
+            // to ensure "Handle" is required (not null)
+            if (Handle == null)
+            {
+                throw new InvalidDataException("Handle is a required property for Subscription and cannot be null");
+            }
+            else
+            {
+                this.Handle = Handle;
+            }
+
             this.ScheduledPlanChange = ScheduledPlanChange;
             this.SubscriptionDiscounts = SubscriptionDiscounts;
         }
@@ -341,7 +352,7 @@ namespace ReepayApi.Model
         /// </summary>
         /// <value>Whether the subscription has been cancelled. Cancelled subscriptions will expire at the end of the current billing period.</value>
         [DataMember(Name="is_cancelled", EmitDefaultValue=false)]
-        public bool? IsCancelled { get; private set; }
+        public bool? IsCancelled { get; set; }
         /// <summary>
         /// Whether the susbcription is in its trial period. If subscription has not started (has_started), trial_start and trial_end can be used to determine if the subscription will have a trial period.
         /// </summary>
@@ -365,7 +376,7 @@ namespace ReepayApi.Model
         /// </summary>
         /// <value>Date when the subscription was cancelled. In [ISO-8601](http://en.wikipedia.org/wiki/ISO_8601) extended offset date-time format.</value>
         [DataMember(Name="cancelled_date", EmitDefaultValue=false)]
-        public DateTime? CancelledDate { get; private set; }
+        public DateTime? CancelledDate { get; set; }
         /// <summary>
         /// Date when the subscription expired. [ISO-8601](http://en.wikipedia.org/wiki/ISO_8601) extended offset date-time format.
         /// </summary>
